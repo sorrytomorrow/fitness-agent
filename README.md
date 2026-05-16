@@ -1,4 +1,4 @@
-# 健身教练 AI Agent
+# 嵌入式人自己的健身教练 AI Agent
 
 你的专属 AI 健身私人教练，基于 Claude Code + oh-my-claudecode 构建的多 Agent 协作系统。提供训练计划制定、运动营养指导、进度追踪调整和动作技术教学。
 
