@@ -39,13 +39,13 @@
 ### 前提条件
 
 - 已安装 [Claude Code](https://claude.ai/code)
-- 已安装 [oh-my-claudecode](https://github.com/anthropics/claude-code) 多 Agent 编排层
+- 已安装 [oh-my-claudecode](https://github.com/anthropics/claude-code) 多 Agent 编排层   (非必须)
 
 ### 安装步骤
 
-1. 克隆仓库：
+1. 克隆仓库(可以手动下载)：
 ```bash
-git clone https://github.com/YOUR_USERNAME/fitness-agent.git
+git clone https://github.com/sorrytomorrow/fitness-agent.git
 ```
 
 2. 复制 Agent 到 Claude Code 配置目录：
