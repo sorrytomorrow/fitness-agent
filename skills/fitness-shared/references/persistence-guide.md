@@ -1,71 +1,52 @@
 # 持久化策略指南
 
-健身 skills 使用两种持久化方案，按优先级排列。
+本健身 Agent 使用 `.claude/fitness-data/` 目录存储所有用户数据。所有文件均为 JSON 格式，用 Read/Write 工具进行读写。
 
-## 主方案: shared_memory MCP 工具
-
-使用 `shared_memory_write` 和 `shared_memory_read` MCP 工具，namespace 为 `fitness`。
-
-### 读取操作
-```
-mcp__shared_memory_read(key="user_profile", namespace="fitness")
-```
-
-### 写入操作
-```
-mcp__shared_memory_write(key="user_profile", namespace="fitness", value="<JSON字符串>")
-```
-
-### TTL 设置
-为避免数据意外过期，所有 fitness 数据的 TTL 应设置为较长时间：
-
-| Key | TTL (秒) | 说明 |
-|-----|----------|------|
-| `user_profile` | 7776000 (90天) | 用户基础数据，变更不频繁 |
-| `current_plan` | 2592000 (30天) | 当前计划，可能被更新替换 |
-| `nutrition_plan` | 2592000 (30天) | 饮食方案 |
-| `progress_log` | 31536000 (365天) | 进度日志，需长期保留 |
-| `plan_adjustments` | 604800 (7天) | 临时调整建议，处理后清除 |
-
-## 备选方案: 文件存储
-
-当 `shared_memory` MCP 工具不可用时，使用 JSON 文件存储。
-
-**文件路径:** `~/.claude/fitness-data.json`
-
-**文件结构:**
-```json
-{
-  "user_profile": { ... },
-  "current_plan": { ... },
-  "nutrition_plan": { ... },
-  "progress_log": [ ... ],
-  "plan_adjustments": { ... }
-}
-```
-
-**读写方法:**
-- 读取：使用 Read 工具读取 `~/.claude/fitness-data.json`
-- 写入：使用 Write 工具覆盖写入整个文件
-- 注意：文件模式下需要先读取 → 修改 → 完整覆盖写入
-
-## 方案切换逻辑
+## 存储位置
 
 ```
-1. 尝试 shared_memory_read(namespace="fitness", key="<key>")
-2. 如果返回 null 或工具不可用 → 尝试读取 ~/.claude/fitness-data.json
-3. 如果文件也不存在 → 这是新用户，开始采集流程
-4. 写入时：优先使用 shared_memory_write
-5. 如果 shared_memory_write 失败 → 降级到文件写入，并提示用户
+.claude/fitness-data/
+  ├── user-profile.json        # 用户身体数据 + 目标
+  ├── current-plan.json        # 当前训练计划
+  ├── nutrition-plan.json      # 饮食方案
+  ├── progress-log.json        # 进度记录数组
+  └── plan-adjustments.json    # 计划调整建议（临时）
 ```
+
+## 读写方法
+
+### 读取数据
+用 Read 工具读取对应文件。
+- 文件存在 → 解析 JSON，使用数据
+- 文件不存在 → 这是新用户或该数据尚未创建，开始采集流程
+
+### 写入/覆盖数据
+用 Write 工具写入文件。JSON 内容格式化（缩进 2 空格）。
+
+### 追加数据（progress-log）
+progress-log.json 是 JSON 数组，追加新记录时：
+1. 用 Read 读取 `.claude/fitness-data/progress-log.json`
+2. 解析为数组
+3. push 新条目
+4. 用 Write 写回
+
+## 数据生命周期
+
+| 文件 | 保留策略 | 说明 |
+|------|---------|------|
+| `user-profile.json` | 长期保留 | 用户基础数据，变更不频繁 |
+| `current-plan.json` | 覆盖更新 | 每次生成新计划直接覆盖 |
+| `nutrition-plan.json` | 覆盖更新 | 每次计算新方案直接覆盖 |
+| `progress-log.json` | 保留 12 个月 | 长期追踪需要，定期清理旧记录 |
+| `plan-adjustments.json` | 处理后清除 | 临时调整建议，被 workout-plan 读取后覆盖为空对象 `{}` |
 
 ## 隐私声明
 
-所有健身数据存储在本地（`shared_memory` namespace 或 `~/.claude/fitness-data.json`），不会上传到外部服务器。用户可以随时删除这些数据。
+所有健身数据存储在本地 `.claude/fitness-data/` 目录下，不会上传到外部服务器。用户可以随时删除此目录或其中的文件来清理数据。
 
 ## 数据清理
 
 用户可通过以下方式清理数据：
-- 删除 `~/.claude/fitness-data.json` 文件
-- 使用 `shared_memory_delete(key="...", namespace="fitness")` 删除特定 key
-- 说「清除我的所有健身数据」触发清理流程
+- 删除 `.claude/fitness-data/` 目录下对应文件
+- 说「清除我的所有健身数据」→ Agent 删除 `.claude/fitness-data/` 下所有 JSON 文件
+- 说「删除我的训练记录」→ Agent 将 `progress-log.json` 写为空数组 `[]`

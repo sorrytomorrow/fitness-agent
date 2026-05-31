@@ -12,21 +12,20 @@ triggers: [记录, 进展, 体重变化, 围度, 平台期, 调整计划, 这周
 
 在处理用户请求前，先读取共享参考文件：
 - 读取 `~/.claude/skills/fitness-shared/references/user-profile.md`
-- 读取 `~/.claude/skills/fitness-shared/references/cross-skill-protocol.md` — 包含 `progress_log` 和 `plan_adjustments` 的数据格式
+- 读取 `~/.claude/skills/fitness-shared/references/cross-skill-protocol.md` — 包含 progress-log 和 plan-adjustments 的数据格式
 - 读取 `~/.claude/skills/fitness-shared/references/persistence-guide.md` — 持久化操作方法
 
 ## 数据读取
 
-```
-shared_memory_read(key="user_profile", namespace="fitness")
-shared_memory_read(key="progress_log", namespace="fitness")
-shared_memory_read(key="current_plan", namespace="fitness")
-```
+用 Read 工具读取以下文件（如果存在）：
+- `.claude/fitness-data/user-profile.json`
+- `.claude/fitness-data/progress-log.json`
+- `.claude/fitness-data/current-plan.json`
 
 ### 首次使用路径（无已有数据时）
-- 如果 `progress_log` 不存在 → 告知用户：「还没有训练记录。你可以先说"记录体重 80kg"开始，也可以汇报今天的训练内容。」
-- 如果 `user_profile` 不存在 → 引导用户先通过「训练计划生成」录入基本数据
-- 如果 `current_plan` 不存在但没有影响 → 仍然可以记录数据，只是无法关联到具体计划
+- 如果 `progress-log.json` 不存在 → 告知用户：「还没有训练记录。你可以先说"记录体重 80kg"开始，也可以汇报今天的训练内容。」
+- 如果 `user-profile.json` 不存在 → 引导用户先通过「训练计划生成」录入基本数据
+- 如果 `current-plan.json` 不存在但没有影响 → 仍然可以记录数据，只是无法关联到具体计划
 
 ## 数据记录
 
@@ -38,18 +37,18 @@ shared_memory_read(key="current_plan", namespace="fitness")
 | 主要围度 | 每 2 周 | `measurements: {胸: 102, 腰: 85, 臀: 98, 臂: 36, 腿: 56}` (单位cm) |
 | 训练完成情况 | 每次训练后 | `training_completed: {day: 3, exercises_done: 5, felt: "good"}` |
 | 训练重量变化 | 每次训练后 | `strength: {卧推: "80kg×6", 深蹲: "100kg×8"}` |
-| 主观感受 | 每次训练后 | `felt: "精力充沛" | "有点累" | "正常"` |
+| 主观感受 | 每次训练后 | `felt: "精力充沛" \| "有点累" \| "正常"` |
 | 体脂率 | 每月 | `body_fat_pct: 18.5` |
 
 ### 记录操作
 
 **追加新记录:**
-1. 读取现有 `progress_log` (数组)
-2. 追加新条目: `{date: "2026-05-14", weight_kg: 79.5, ...}`
-3. 写回: `shared_memory_write(key="progress_log", namespace="fitness", value="<JSON>", ttl=31536000)`
+1. 用 Read 工具读取 `.claude/fitness-data/progress-log.json`（JSON 数组）
+2. 解析数组，追加新条目: `{date: "2026-05-14", weight_kg: 79.5, ...}`
+3. 用 Write 工具写回 `.claude/fitness-data/progress-log.json`（JSON 格式化，缩进 2 空格）
 
 **查看历史记录:**
-1. 读取 `progress_log`
+1. 读取 `.claude/fitness-data/progress-log.json`
 2. 按日期排序展示
 3. 如记录 > 10 条，先展示最近 10 条的摘要
 
@@ -57,20 +56,19 @@ shared_memory_read(key="current_plan", namespace="fitness")
 
 ### 体重变化分析
 ```
-如果 progress_log 包含 >= 2 条体重记录:
+如果 progress-log.json 包含 >= 2 条体重记录:
   - 计算每周体重变化率 (kg/week)
-  - 绘制简易 ASCII 趋势线
   - 判断: 下降 / 稳定 / 上升
   - 根据目标判断是否在正确轨道上
 ```
 
 ### 平台期检测
 ```
-如果 progress_log 中连续 >= 2 周:
+如果 progress-log.json 中连续 >= 2 周:
   - 体重变化 < 0.5kg (减脂目标)
   - 或训练重量无增长 (增肌/力量目标)
   → 标记为 "可能进入平台期"
-  → 写入 plan_adjustments
+  → 写入 plan-adjustments.json
 ```
 
 ### 训练一致性检查
@@ -90,7 +88,7 @@ shared_memory_read(key="current_plan", namespace="fitness")
    - 体重变化偏离目标 → 训练和饮食都可能需要调整
    - 训练完成率低 → 计划可能太激进或不适合生活节奏
 
-2. **写入调整建议:**
+2. **写入调整建议**到 `.claude/fitness-data/plan-adjustments.json`:
 ```json
 {
   "detected_at": "2026-05-14",
@@ -99,9 +97,6 @@ shared_memory_read(key="current_plan", namespace="fitness")
   "severity": "moderate",
   "require_regeneration": true
 }
-```
-```
-shared_memory_write(key="plan_adjustments", namespace="fitness", value="<JSON>", ttl=604800)
 ```
 
 3. **提示用户:**
@@ -145,6 +140,6 @@ shared_memory_write(key="plan_adjustments", namespace="fitness", value="<JSON>",
 ```
 
 ## 数据隐私和安全
-- 所有进度数据存储在本地
-- 用户可以随时说「删除我的训练记录」来进行清理
-- 删除操作: `shared_memory_delete(key="progress_log", namespace="fitness")`
+- 所有进度数据存储在 `.claude/fitness-data/` 目录下
+- 用户可以随时说「删除我的训练记录」来清空 `progress-log.json`
+- 删除操作：用 Write 工具写空数组 `[]` 到 `.claude/fitness-data/progress-log.json`

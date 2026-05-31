@@ -1,8 +1,11 @@
 # OMC internal state
 .omc/
 
-# Claude local settings
-.claude/
+# Claude local settings (keep agents out of git, settings definitely out)
+.claude/settings*.json
+
+# User data directory (personal fitness data)
+data/
 
 # OS files
 .DS_Store

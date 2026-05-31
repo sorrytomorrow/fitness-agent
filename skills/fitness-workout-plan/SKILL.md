@@ -14,15 +14,13 @@ triggers: [训练计划, 减脂, 增肌, 塑形, 安排训练, 怎么练, 每周
 
 在处理用户请求前，先读取共享参考文件了解数据模型和通信协议：
 - 读取 `~/.claude/skills/fitness-shared/references/user-profile.md` — 数据模型和校验规则
-- 读取 `~/.claude/skills/fitness-shared/references/cross-skill-protocol.md` — 共享 key 和数据格式
+- 读取 `~/.claude/skills/fitness-shared/references/cross-skill-protocol.md` — 共享数据格式
 - 读取 `~/.claude/skills/fitness-shared/references/persistence-guide.md` — 持久化操作方法
 
 ## 数据获取流程
 
 ### 1. 尝试读取已有用户数据
-```
-shared_memory_read(key="user_profile", namespace="fitness")
-```
+用 Read 工具读取 `.claude/fitness-data/user-profile.json`。
 如果返回数据，向用户确认是否继续使用已有数据。
 
 ### 2. 逐字段采集缺失数据
@@ -39,10 +37,7 @@ shared_memory_read(key="user_profile", namespace="fitness")
 - 不静默使用默认值，必须用户确认
 
 ### 4. 保存用户数据
-采集完毕后，写入 shared_memory：
-```
-shared_memory_write(key="user_profile", namespace="fitness", value="<JSON>", ttl=7776000)
-```
+采集完毕后，用 Write 工具写入 `.claude/fitness-data/user-profile.json`，JSON 格式化缩进 2 空格。
 
 ## 训练计划生成逻辑
 
@@ -103,17 +98,12 @@ shared_memory_write(key="user_profile", namespace="fitness", value="<JSON>", ttl
 
 ## 计划保存
 
-生成计划后，将计划写入 shared_memory：
-```
-shared_memory_write(key="current_plan", namespace="fitness", value="<JSON>", ttl=2592000)
-```
+生成计划后，用 Write 工具将计划写入 `.claude/fitness-data/current-plan.json`（JSON 格式化，缩进 2 空格）。
 
 ### 检查调整建议
 生成新计划前，先检查是否有来自 progress skill 的调整建议：
-```
-shared_memory_read(key="plan_adjustments", namespace="fitness")
-```
-如果有，在计划中融入这些建议，并通过 `shared_memory_write` 清除 `plan_adjustments`（设置短 TTL 或标记为已处理）。
+用 Read 工具读取 `.claude/fitness-data/plan-adjustments.json`。
+如果有，在计划中融入这些建议，然后删除 `.claude/fitness-data/plan-adjustments.json`（用 Write 覆盖为空对象 `{}`）。
 
 ## 训练安全提醒
 - 新动作先用轻重量掌握正确姿势

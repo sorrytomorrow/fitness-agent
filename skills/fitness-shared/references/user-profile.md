@@ -1,6 +1,6 @@
 # 健身用户数据模型
 
-所有健身 skills 共享的用户数据模型。每个 skill 在处理用户请求前应先尝试从 `shared_memory` 读取现有用户数据。
+所有健身 skills 共享的用户数据模型。每个 skill 在处理用户请求前应先尝试从 `.claude/fitness-data/user-profile.json` 读取现有用户数据。
 
 ## JSON Schema
 
@@ -41,10 +41,10 @@
 - **每周天数**: 1-7天。>7 → 自动裁剪为7
 
 ### 必填字段缺失处理
-1. 先从 `shared_memory_read(key="user_profile", namespace="fitness")` 读取已有数据
+1. 先从 `.claude/fitness-data/user-profile.json` 读取已有数据
 2. 缺失字段逐个询问用户，每次最多 2 个字段
 3. 不静默使用默认值——必须用户确认
-4. 全部采集完毕后，通过 `shared_memory_write` 保存
+4. 全部采集完毕后，写入 `.claude/fitness-data/user-profile.json`
 
 ### 健身目标与建议值的对应关系
 | 目标 | 建议训练频率 | 建议热量调整 |
@@ -58,4 +58,4 @@
 
 ## 存储位置
 
-`shared_memory` namespace: `fitness`, key: `user_profile`
+`.claude/fitness-data/user-profile.json`

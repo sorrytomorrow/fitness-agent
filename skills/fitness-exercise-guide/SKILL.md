@@ -12,8 +12,9 @@ triggers: [深蹲, 硬拉, 卧推, 引体向上, 划船, 推举, 弯举, 臂屈�
 
 ## 前置步骤
 
-本 skill 以知识查询为主，数据依赖较少。处理请求前读取：
-- 读取 `~/.claude/skills/fitness-shared/references/user-profile.md` — 了解用户基本情况（经验水平、目标），让回答更有针对性
+本 skill 以知识查询为主，数据依赖较少。处理请求前：
+- 尝试用 Read 工具读取 `.claude/fitness-data/user-profile.json` — 了解用户基本情况（经验水平、目标），让回答更有针对性
+- 如果文件不存在，直接基于用户描述的问题回答
 
 ## 动作覆盖范围
 
@@ -105,7 +106,7 @@ triggers: [深蹲, 硬拉, 卧推, 引体向上, 划船, 推举, 弯举, 臂屈�
 → 列出该部位的代表性动作（3-5个），每个简要说明特点
 
 ### 当用户问"我适合做XXX吗"
-→ 结合 `user_profile` 中的 `experience_level` 和 `goal` 给出针对性建议
+→ 结合 `user-profile.json` 中的 `experience_level` 和 `goal` 给出针对性建议
 
 ### 当用户描述疼痛
 → 立即建议停止该动作，推荐就医或咨询物理治疗师。不尝试诊断伤病。

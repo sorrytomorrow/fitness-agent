@@ -1,26 +1,41 @@
 # 跨 Skill 通信协议
 
-健身 skills 之间通过 `shared_memory` MCP 工具的 `fitness` namespace 共享数据。
+健身 skills 之间通过 `~/.claude/.claude/fitness-data/` 目录下的 JSON 文件共享数据。
 
-## 共享 Keys
+## 共享文件
 
-| Key | 写入者 | 读取者 | 内容 |
-|-----|--------|--------|------|
-| `user_profile` | workout-plan (首次) | 所有 skills | 用户身体数据 + 目标 (JSON) |
-| `current_plan` | workout-plan | nutrition, progress | 当前训练计划 (JSON) |
-| `nutrition_plan` | nutrition | workout-plan, progress | 当前饮食方案 (JSON) |
-| `progress_log` | progress | workout-plan, nutrition | 进度记录数组 [{date, weight, ...}] |
-| `plan_adjustments` | progress | workout-plan | 计划调整建议 (JSON) |
+| 文件 | 写入者 | 读取者 | 内容 |
+|------|--------|--------|------|
+| `.claude/fitness-data/user-profile.json` | workout-plan (首次) | 所有 skills | 用户身体数据 + 目标 (JSON) |
+| `.claude/fitness-data/current-plan.json` | workout-plan | nutrition, progress | 当前训练计划 (JSON) |
+| `.claude/fitness-data/nutrition-plan.json` | nutrition | workout-plan, progress | 当前饮食方案 (JSON) |
+| `.claude/fitness-data/progress-log.json` | progress | workout-plan, nutrition | 进度记录数组 [{date, weight, ...}] |
+| `.claude/fitness-data/plan-adjustments.json` | progress | workout-plan | 计划调整建议 (JSON) |
 
 ## 写入规范
 
 ### 单写者原则
-- 每个 key 只有一个主要写入者
-- 如果 workout-plan 需要更新 `user_profile` 中的 `weight_kg`（用户告知体重变化），也可以写入，但需提示用户
+- 每个文件只有一个主要写入者
+- 如果 workout-plan 需要更新 `user-profile.json` 中的 `weight_kg`（用户告知体重变化），也可以写入，但需提示用户
 
 ### 数据格式
 
-**current_plan:**
+**.claude/fitness-data/user-profile.json:**
+```json
+{
+  "height_cm": 175,
+  "weight_kg": 80,
+  "goal": "增肌",
+  "equipment": ["哑铃", "杠铃"],
+  "days_per_week": 4,
+  "experience_level": "中级",
+  "dietary_restrictions": [],
+  "age": 30,
+  "gender": "male"
+}
+```
+
+**.claude/fitness-data/current-plan.json:**
 ```json
 {
   "created_at": "YYYY-MM-DD",
@@ -41,14 +56,14 @@
 }
 ```
 
-**progress_log:**
+**.claude/fitness-data/progress-log.json:**
 ```json
 [
   {"date": "2026-05-14", "weight_kg": 79.5, "notes": "感觉力量有进步"}
 ]
 ```
 
-**plan_adjustments:**
+**.claude/fitness-data/plan-adjustments.json:**
 ```json
 {
   "detected_at": "2026-05-21",
@@ -65,16 +80,15 @@
 ## 委托模式
 
 当 progress skill 检测到需要调整计划时：
-1. Progress 分析 `progress_log` 和 `current_plan`
-2. 写入 `plan_adjustments` key
+1. Progress 分析 `progress-log.json` 和 `current-plan.json`
+2. 写入 `plan-adjustments.json`
 3. 在响应中提示用户：「检测到可能需要调整训练计划。你可以跟我说"更新训练计划"，我会根据最新进展为你生成更新后的方案。」
 4. 用户触发 workout-plan skill
-5. Workout-plan 读取 `plan_adjustments`，生成调整后的计划
-6. Workout-plan 清除或标记 `plan_adjustments` 为已处理
+5. Workout-plan 读取 `plan-adjustments.json`，生成调整后的计划
+6. Workout-plan 将 `plan-adjustments.json` 覆盖为空对象 `{}`
 
 ## 一致性规则
 - 同一数据避免同时写入冲突（单写者原则已预防）
-- 如果出现冲突（用户同时在两个 skill 中修改数据），优先采用最新的时间戳
 - 关键修改应提示用户确认
 
 ## 数据生命周期

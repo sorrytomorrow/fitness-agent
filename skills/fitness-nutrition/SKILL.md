@@ -14,22 +14,19 @@ triggers: [饮食, 营养, 减脂餐, 增肌餐, 蛋白质, 热量, 怎么吃, �
 
 在处理用户请求前，先读取共享参考文件：
 - 读取 `~/.claude/skills/fitness-shared/references/user-profile.md` — 数据模型和校验规则
-- 读取 `~/.claude/skills/fitness-shared/references/cross-skill-protocol.md` — 共享 key 和数据格式
+- 读取 `~/.claude/skills/fitness-shared/references/cross-skill-protocol.md` — 共享数据格式
 - 读取 `~/.claude/skills/fitness-shared/references/persistence-guide.md` — 持久化操作方法
 
 ## 数据获取流程
 
 ### 1. 读取已有数据
-```
-shared_memory_read(key="user_profile", namespace="fitness")
-shared_memory_read(key="current_plan", namespace="fitness")
-```
-- 如果 `user_profile` 不存在：引导用户先使用「训练计划生成」skill 录入基本数据，或在本 skill 中直接采集
-- 如果 `current_plan` 存在：用训练计划中的训练频率和强度来估算每日热量需求
-- 如果 `current_plan` 不存在：仅基于身体数据和目标计算（精度略低，标注"基于目标估算"）
+用 Read 工具读取 `.claude/fitness-data/user-profile.json` 和 `.claude/fitness-data/current-plan.json`。
+- 如果 `user-profile.json` 不存在：引导用户先使用「训练计划生成」录入基本数据，或在本 skill 中直接采集
+- 如果 `current-plan.json` 存在：用训练计划中的训练频率和强度来估算每日热量需求
+- 如果 `current-plan.json` 不存在：仅基于身体数据和目标计算（精度略低，标注"基于目标估算"）
 
 ### 2. 补充饮食偏好
-- 检查 `user_profile.dietary_restrictions`
+- 检查 `user-profile.json` 中的 `dietary_restrictions`
 - 如果为空：询问用户有无饮食限制（素食、过敏、宗教饮食要求等）
 - 询问用户日常饮食习惯（是否自己做饭、外卖频率、不吃早餐等）
 
@@ -42,8 +39,8 @@ shared_memory_read(key="current_plan", namespace="fitness")
 
 ### TDEE 估算 (Mifflin-St Jeor 公式)
 
-**男性:** BMR = 10 × 体重(kg) + 6.25 × 身高(cm) - 5 × 年龄 - 161
-**女性:** BMR = 10 × 体重(kg) + 6.25 × 身高(cm) - 5 × 年龄 + 5
+**男性:** BMR = 10 × 体重(kg) + 6.25 × 身高(cm) - 5 × 年龄 + 5
+**女性:** BMR = 10 × 体重(kg) + 6.25 × 身高(cm) - 5 × 年龄 - 161
 
 活动系数:
 | 训练频率 | 活动系数 |
@@ -130,6 +127,4 @@ MVP 阶段 AI 知识足以覆盖常见食物的营养数据。后续可集成以
 
 ## 方案保存
 
-```
-shared_memory_write(key="nutrition_plan", namespace="fitness", value="<JSON>", ttl=2592000)
-```
+用 Write 工具写入 `.claude/fitness-data/nutrition-plan.json`（JSON 格式化，缩进 2 空格）。
